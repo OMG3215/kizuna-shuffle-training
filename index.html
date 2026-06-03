@@ -191,11 +191,23 @@
       border-radius: 999px;
       text-transform: uppercase;
     }
-    .cat-arm  { background: #003d55; color: #00cfff; border: 1px solid #005577; }
-    .cat-abs  { background: #4a0000; color: #ff7070; border: 1px solid #6a0000; }
-    .cat-core { background: #2e3400; color: #d4e030; border: 1px solid #4a5200; }
-    .cat-leg  { background: #003d55; color: #ffffff; border: 1px solid #005577; }
-    .cat-full { background: #4a0000; color: #d4e030; border: 1px solid #6a0000; }
+    .cat-arm     { background: #003d55; color: #00cfff; border: 1px solid #005577; }
+    .cat-abs     { background: #4a0000; color: #ff7070; border: 1px solid #6a0000; }
+    .cat-core    { background: #2e3400; color: #d4e030; border: 1px solid #4a5200; }
+    .cat-leg     { background: #003d55; color: #ffffff; border: 1px solid #005577; }
+    .cat-full    { background: #4a0000; color: #d4e030; border: 1px solid #6a0000; }
+    .cat-mystery { background: #1a0a2e; color: #c084fc; border: 1px solid #6b21a8; }
+
+    .ex-name.mystery {
+      font-size: 5rem;
+      letter-spacing: 0.3em;
+      color: #c084fc;
+      animation: mystery-pulse 1.4s ease-in-out infinite;
+    }
+    @keyframes mystery-pulse {
+      0%, 100% { opacity: 1; text-shadow: 0 0 20px #c084fc; }
+      50%       { opacity: 0.5; text-shadow: none; }
+    }
 
     .ex-name {
       font-size: 2rem;
@@ -591,17 +603,31 @@
   /* ========== SLOT ========== */
   function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 
+  const MYSTERY = { name: "?", cat: "mystery", catLabel: "???", reps: null, unit: "", mystery: true };
+
   function pickItem() {
+    // 約1/5の確率でミステリー
+    if (Math.random() < 0.25) return MYSTERY;
     const m = MENU[Math.floor(Math.random() * MENU.length)];
     const [i0, i1] = LEVEL_CONFIG[currentLevel].idx;
     return { ...m, reps: rand(m.reps[i0], m.reps[i1]) };
   }
 
   function renderItem(item) {
-    document.getElementById("catPill").className = "cat-pill cat-" + item.cat;
-    document.getElementById("catPill").textContent = item.catLabel;
-    document.getElementById("exName").textContent  = item.name;
-    document.getElementById("exReps").textContent  = item.reps + " " + item.unit;
+    const nameEl = document.getElementById("exName");
+    if (item.mystery) {
+      document.getElementById("catPill").className = "cat-pill cat-mystery";
+      document.getElementById("catPill").textContent = "???";
+      nameEl.textContent = "?";
+      nameEl.classList.add("mystery");
+      document.getElementById("exReps").textContent = "";
+    } else {
+      document.getElementById("catPill").className = "cat-pill cat-" + item.cat;
+      document.getElementById("catPill").textContent = item.catLabel;
+      nameEl.textContent = item.name;
+      nameEl.classList.remove("mystery");
+      document.getElementById("exReps").textContent = item.reps + " " + item.unit;
+    }
   }
 
   function startRoll() {
@@ -627,17 +653,26 @@
     renderItem(currentItem);
     document.getElementById("exHint").textContent = "下のタイマーでトレーニング開始";
     document.getElementById("nextBtn").style.display = "block";
-    document.getElementById("demoBtn").classList.add("visible");
 
-    const secs = currentItem.unit === "秒" ? currentItem.reps : 60;
-    setupTimer(secs);
-    document.getElementById("timerCard").classList.add("visible");
+    if (currentItem.mystery) {
+      document.getElementById("exHint").textContent = "何が出るかはやってみてのお楽しみ";
+      document.getElementById("demoBtn").classList.remove("visible");
+      document.getElementById("timerCard").classList.remove("visible");
+    } else {
+      document.getElementById("exHint").textContent = "下のタイマーでトレーニング開始";
+      document.getElementById("demoBtn").classList.add("visible");
+      const secs = currentItem.unit === "秒" ? currentItem.reps : 60;
+      setupTimer(secs);
+      document.getElementById("timerCard").classList.add("visible");
+    }
   }
 
   function resetSlot() {
     document.getElementById("catPill").textContent = "カテゴリ";
     document.getElementById("catPill").className   = "cat-pill cat-arm";
-    document.getElementById("exName").textContent  = "－";
+    const nameEl = document.getElementById("exName");
+    nameEl.textContent = "－";
+    nameEl.classList.remove("mystery");
     document.getElementById("exReps").textContent  = "－";
     document.getElementById("exHint").textContent  = "スタートを押してシャッフル";
     document.getElementById("nextBtn").style.display = "none";
