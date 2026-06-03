@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KIZUNA SHUFFLE TRAINING</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      /* --- KIZUNA TOKYO カラーパレット --- */
+      --bg:        #0d1b2e;   /* ロゴ背景：ディープネイビー */
+      --surface:   #152338;   /* カード面 */
+      --surface2:  #1d2f47;   /* 一段明るい面 */
+      --border:    #253d5c;   /* ボーダー */
+      --text:      #ffffff;
+      --muted:     #5a7a9a;
+
+      --easy:      #00cfff;   /* シアン（ロゴの青キャラ） */
+      --easy-dim:  #003d55;
+      --mid:       #d4e030;   /* ゴールドイエロー（ロゴテキスト） */
+      --mid-dim:   #2e3400;
+      --hard:      #ff4747;   /* レッド（ロゴの赤キャラ） */
+      --hard-dim:  #4a0000;
+      --accent:    #d4e030;   /* メインアクセント = ゴールドイエロー */
+      --cyan:      #00cfff;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Yu Gothic', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ========== SCREEN MANAGEMENT ========== */
+    .screen { display: none; width: 100%; max-width: 480px; padding: 32px 20px; flex-direction: column; align-items: center; }
+    .screen.active { display: flex; }
+
+    /* ========== RESPONSIVE ========== */
+    @media (max-width: 480px) {
+      .screen { padding: 24px 16px; }
+      .brand  { font-size: 2rem; }
+      .level-name { font-size: 1.35rem; }
+      .level-card { padding: 18px 20px; }
+      .ex-name    { font-size: 1.6rem; }
+      .ex-reps    { font-size: 2.3rem; }
+      .slot-card  { padding: 24px 18px; }
+      .timer-display { font-size: 4.5rem; }
+      .timer-header  { flex-direction: column; align-items: flex-start; gap: 10px; }
+      .btn { padding: 14px; font-size: 0.95rem; }
+    }
+    @media (min-width: 600px) {
+      .screen { padding: 40px 32px; }
+      .brand  { font-size: 3rem; }
+      .ex-name { font-size: 2.2rem; }
+      .ex-reps { font-size: 3rem; }
+      .timer-display { font-size: 6.5rem; }
+    }
+
+    /* ========== LEVEL SELECT ========== */
+    .brand {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 2.6rem;
+      letter-spacing: 0.08em;
+      color: var(--mid);
+      text-transform: uppercase;
+      margin-bottom: 36px;
+      text-align: center;
+      line-height: 1.1;
+    }
+    .screen-title { display: none; }
+    .screen-sub   { display: none; }
+
+    .level-cards {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      width: 100%;
+    }
+
+    .level-card {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 16px;
+      padding: 22px 24px;
+      cursor: pointer;
+      transition: border-color 0.2s, transform 0.1s, background 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      user-select: none;
+    }
+    .level-card:hover  { background: var(--surface2); }
+    .level-card:active { transform: scale(0.98); }
+    .level-card.easy:hover  { border-color: var(--easy); }
+    .level-card.mid:hover   { border-color: var(--mid); }
+    .level-card.hard:hover  { border-color: var(--hard); }
+
+    .level-dot {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .easy .level-dot  { background: var(--easy); box-shadow: 0 0 8px var(--easy); }
+    .mid  .level-dot  { background: var(--mid);  box-shadow: 0 0 8px var(--mid); }
+    .hard .level-dot  { background: var(--hard); box-shadow: 0 0 8px var(--hard); }
+
+    .level-info { flex: 1; }
+    .level-name {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.6rem;
+      letter-spacing: 0.12em;
+    }
+    .easy  .level-name { color: var(--easy); }
+    .mid   .level-name { color: var(--mid);  }
+    .hard  .level-name { color: var(--hard); }
+
+    .level-desc { font-size: 0.78rem; color: var(--muted); }
+    .level-range {
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      white-space: nowrap;
+    }
+    .easy  .level-range { color: var(--easy); }
+    .mid   .level-range { color: var(--mid);  }
+    .hard  .level-range { color: var(--hard); }
+
+    /* ========== WORKOUT SCREEN ========== */
+    .top-bar {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      margin-bottom: 28px;
+      gap: 12px;
+    }
+    .back-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 0.82rem;
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .back-btn:hover { border-color: var(--accent); color: var(--text); }
+    .current-level {
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 5px 12px;
+      border-radius: 999px;
+      letter-spacing: 0.06em;
+    }
+    .lv-easy { background: var(--easy-dim); color: var(--easy); }
+    .lv-mid  { background: var(--mid-dim);  color: var(--mid);  }
+    .lv-hard { background: var(--hard-dim); color: var(--hard); }
+
+    /* ========== SLOT ========== */
+    .slot-card {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 20px;
+      padding: 32px 24px;
+      width: 100%;
+      text-align: center;
+      margin-bottom: 20px;
+      min-height: 180px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 10px;
+      transition: border-color 0.3s;
+    }
+    .slot-card.locked { border-color: var(--accent); }
+
+    .cat-pill {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      padding: 3px 10px;
+      border-radius: 999px;
+      text-transform: uppercase;
+    }
+    .cat-arm  { background: #003d55; color: #00cfff; border: 1px solid #005577; }
+    .cat-abs  { background: #4a0000; color: #ff7070; border: 1px solid #6a0000; }
+    .cat-core { background: #2e3400; color: #d4e030; border: 1px solid #4a5200; }
+    .cat-leg  { background: #003d55; color: #ffffff; border: 1px solid #005577; }
+    .cat-full { background: #4a0000; color: #d4e030; border: 1px solid #6a0000; }
+
+    .ex-name {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: -0.02em;
+      min-height: 2.5rem;
+      line-height: 1.1;
+    }
+    .ex-reps {
+      font-size: 2.8rem;
+      font-weight: 900;
+      color: var(--accent);
+      letter-spacing: -0.03em;
+      min-height: 3.2rem;
+      font-variant-numeric: tabular-nums;
+    }
+    .ex-hint {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    .demo-btn {
+      display: none;
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 8px;
+      padding: 7px 16px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      margin: 0 auto;
+      transition: border-color 0.2s, color 0.2s;
+      letter-spacing: 0.04em;
+    }
+    .demo-btn:hover { border-color: var(--accent); color: var(--text); }
+    .demo-btn.visible { display: inline-block; }
+
+    /* ========== CONTROLS ========== */
+    .ctrl-row {
+      display: flex;
+      gap: 12px;
+      width: 100%;
+      margin-bottom: 12px;
+    }
+    .btn {
+      flex: 1;
+      padding: 15px;
+      border: none;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.04em;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    .btn:active:not(:disabled) { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.3; cursor: default; }
+    .btn-start { background: var(--accent); color: #0d1b2e; }
+    .btn-stop  { background: var(--hard); color: #fff; }
+    .btn-next  {
+      background: var(--surface);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      flex: none; width: 100%;
+      font-size: 0.85rem;
+      padding: 11px;
+      margin-bottom: 24px;
+      display: none;
+    }
+
+    /* ========== TIMER ========== */
+    .timer-card {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 20px;
+      padding: 28px 24px;
+      width: 100%;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
+    }
+    .timer-card.visible { display: flex; }
+
+    .timer-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+    }
+    .timer-label {
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+    .timer-set-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .time-adj {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 0.78rem;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .time-adj:hover { border-color: var(--accent); }
+    .time-adj:disabled { opacity: 0.3; cursor: default; }
+    .time-adj-label { font-size: 0.7rem; color: var(--muted); }
+
+    .timer-display {
+      font-size: 5.5rem;
+      font-weight: 900;
+      color: var(--cyan);
+      letter-spacing: -0.04em;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+    .timer-display.warn   { color: var(--mid); }
+    .timer-display.danger { color: var(--hard); animation: blink 0.6s infinite alternate; }
+    @keyframes blink { to { opacity: 0.35; } }
+
+    .progress-wrap {
+      width: 100%;
+      height: 5px;
+      background: var(--border);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%;
+      background: var(--cyan);
+      border-radius: 999px;
+      transition: width 1s linear, background 0.4s;
+    }
+
+    .timer-btn-row {
+      display: flex;
+      gap: 10px;
+      width: 100%;
+    }
+    .btn-play  { background: var(--cyan); color: #0d1b2e; }
+    .btn-reset { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); flex: 0 0 auto; width: 90px; }
+
+    /* ========== SLOT ANIMATION ========== */
+    .rolling .ex-name,
+    .rolling .ex-reps { animation: flick 0.1s infinite; }
+    @keyframes flick { 50% { opacity: 0.3; } }
+
+    /* ========== MODAL ========== */
+    .modal-backdrop {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.75);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 20px;
+      padding: 28px 24px;
+      width: 100%;
+      max-width: 400px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .modal-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+    .modal-body {
+      font-size: 0.85rem;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+    .modal-link {
+      display: block;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 16px;
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-align: center;
+      transition: border-color 0.2s;
+    }
+    .modal-link:hover { border-color: var(--accent); }
+    .modal-close {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    .modal-close:hover { border-color: var(--text); color: var(--text); }
+  </style>
+</head>
+<body>
+
+<!-- ========== LEVEL SELECT ========== -->
+<div class="screen active" id="screenLevel">
+  <div class="brand">KIZUNA<br>SHUFFLE TRAINING</div>
+
+  <div class="level-cards">
+    <div class="level-card easy" onclick="selectLevel('easy')">
+      <div class="level-dot"></div>
+      <div class="level-name">EASY</div>
+    </div>
+    <div class="level-card mid" onclick="selectLevel('mid')">
+      <div class="level-dot"></div>
+      <div class="level-name">MIDDLE</div>
+    </div>
+    <div class="level-card hard" onclick="selectLevel('hard')">
+      <div class="level-dot"></div>
+      <div class="level-name">HARD</div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== WORKOUT ========== -->
+<div class="screen" id="screenWorkout">
+  <div class="top-bar">
+    <button class="back-btn" onclick="goBack()">戻る</button>
+    <div class="current-level" id="levelBadge"></div>
+  </div>
+
+  <div class="slot-card" id="slotCard">
+    <span class="cat-pill cat-arm" id="catPill">カテゴリ</span>
+    <div class="ex-name" id="exName">－</div>
+    <div class="ex-reps" id="exReps">－</div>
+    <div class="ex-hint" id="exHint">スタートを押してシャッフル</div>
+    <button class="demo-btn" id="demoBtn" onclick="openDemo()">やり方を確認</button>
+  </div>
+
+  <div class="ctrl-row">
+    <button class="btn btn-start" id="startBtn" onclick="startRoll()">スタート</button>
+    <button class="btn btn-stop"  id="stopBtn"  onclick="stopRoll()" disabled>ストップ</button>
+  </div>
+  <button class="btn btn-next" id="nextBtn" onclick="resetSlot()">別のメニューを引く</button>
+
+  <div class="timer-card" id="timerCard">
+    <div class="timer-header">
+      <div class="timer-label">タイマー</div>
+      <div class="timer-set-row">
+        <span class="time-adj-label">時間設定</span>
+        <button class="time-adj" id="adjMinus" onclick="adjustTime(-30)">－30秒</button>
+        <button class="time-adj" id="adjPlus"  onclick="adjustTime(+30)">＋30秒</button>
+      </div>
+    </div>
+    <div class="timer-display" id="timerDisplay">1:00</div>
+    <div class="progress-wrap"><div class="progress-bar" id="progressBar" style="width:100%"></div></div>
+    <div class="timer-btn-row">
+      <button class="btn btn-play"  id="playBtn"  onclick="toggleTimer()">開始</button>
+      <button class="btn btn-reset" id="resetBtn" onclick="resetTimer()">リセット</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== DEMO MODAL ========== -->
+<div class="modal-backdrop" id="modalBackdrop" onclick="closeDemo(event)">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle"></div>
+    <div class="modal-body" id="modalBody"></div>
+    <a class="modal-link" id="modalLink" href="#" target="_blank" rel="noopener">YouTube で動画を確認する</a>
+    <button class="modal-close" onclick="closeDemo()">閉じる</button>
+  </div>
+</div>
+
+<script>
+  /* ============================================================
+     MENU DATA
+     reps: [easy_min, easy_max, mid_min, mid_max, hard_min, hard_max]
+     unit: "回" | "秒"
+  ============================================================ */
+  const MENU = [
+    // 腕・胸
+    { name: "腕立て伏せ",       cat: "arm",  catLabel: "腕・胸",
+      reps: [10,20, 25,40, 50,100], unit: "回",
+      desc: "肩幅より少し広めに手をつき、体を一直線に保ちながら胸を床すれすれまで下ろす。" },
+
+    // 腹筋
+    { name: "クランチ",         cat: "abs",  catLabel: "腹筋",
+      reps: [15,25, 30,45, 60,100], unit: "回",
+      desc: "仰向けで膝を立て、腹直筋を意識しながら上体を丸めて起こす。首で引っ張らない。" },
+    { name: "レッグレイズ",     cat: "abs",  catLabel: "腹筋",
+      reps: [10,20, 25,40, 50,80],  unit: "回",
+      desc: "仰向けで脚をそろえたまま90度まで上げ、ゆっくり下ろす。腰を浮かせない。" },
+    { name: "バイシクルクランチ",cat: "abs",  catLabel: "腹筋",
+      reps: [15,25, 30,45, 60,100], unit: "回",
+      desc: "仰向けで脚を交互にペダルを漕ぐように動かしながら、逆側の肘を膝に近づける。" },
+    { name: "バタ足腹筋",       cat: "abs",  catLabel: "腹筋",
+      reps: [15,25, 30,45, 60,100], unit: "回",
+      desc: "仰向けで脚を少し浮かせ、交互に小刻みにバタバタと動かす。腰を床につけたまま。" },
+    { name: "クロス腹筋",       cat: "abs",  catLabel: "腹筋",
+      reps: [10,20, 25,40, 50,80],  unit: "回",
+      desc: "仰向けで右肘と左膝を近づけ、左肘と右膝を近づける動作を交互に繰り返す。" },
+    { name: "腸腰筋レッグアップ",cat: "abs", catLabel: "腹筋",
+      reps: [10,20, 25,40, 50,80],  unit: "回",
+      desc: "仰向けで片脚ずつ股関節から90度以上引き上げる。体幹を安定させながら交互に行う。" },
+
+    // 体幹
+    { name: "プランク",         cat: "core", catLabel: "体幹",
+      reps: [20,35, 40,55, 60,90],  unit: "秒",
+      desc: "前腕とつま先で体を支え、頭からかかとまで一直線を保つ。お腹に力を入れて呼吸する。" },
+    { name: "サイドプランク",   cat: "core", catLabel: "体幹",
+      reps: [15,25, 30,40, 45,70],  unit: "秒",
+      desc: "片方の前腕と足の外側で体を支え、腰を浮かせて体を一直線にする。左右それぞれ行う。" },
+    { name: "お尻歩き",         cat: "core", catLabel: "体幹",
+      reps: [20,35, 40,55, 60,90],  unit: "秒",
+      desc: "床に座り脚を前に伸ばした状態で、お尻を交互に動かして前後に進む。体幹と腸腰筋を鍛える。" },
+    { name: "スパイダー",       cat: "core", catLabel: "体幹",
+      reps: [20,35, 40,55, 60,90],  unit: "秒",
+      desc: "腕立て伏せの姿勢から膝を横に引き寄せ、肘に近づける動作を交互に行う。体幹・股関節に効く。" },
+
+    // 脚
+    { name: "スクワット",       cat: "leg",  catLabel: "脚",
+      reps: [15,25, 30,45, 60,100], unit: "回",
+      desc: "足を肩幅に開き、膝がつま先より前に出ないよう意識しながら太ももが床と平行になるまで下ろす。" },
+    { name: "ランジ",           cat: "leg",  catLabel: "脚",
+      reps: [10,20, 25,40, 50,80],  unit: "回",
+      desc: "片脚を大きく前に踏み出し、後ろの膝を床すれすれまで下ろす。体幹を垂直に保つ。左右交互。" },
+    { name: "カーフレイズ",     cat: "leg",  catLabel: "脚",
+      reps: [15,25, 30,45, 60,100], unit: "回",
+      desc: "つま先立ちになり、ふくらはぎをしっかり収縮させてからゆっくり下ろす。壁に手を添えてもOK。" },
+    { name: "ヒップリフト",     cat: "leg",  catLabel: "脚",
+      reps: [15,25, 30,45, 60,100], unit: "回",
+      desc: "仰向けで膝を立て、お尻をゆっくり持ち上げて肩・腰・膝が一直線になる位置で止める。" },
+    { name: "ヒンジスクワット",  cat: "leg",  catLabel: "脚",
+      reps: [10,20, 25,40, 50,80],  unit: "回",
+      desc: "股関節を軸に前傾しながらスクワット動作を行う。ハムストリングスと臀部に強く効く。" },
+
+    // 全身
+    { name: "バーピー",         cat: "full", catLabel: "全身",
+      reps: [5,12, 15,30, 40,70],   unit: "回",
+      desc: "立位→しゃがみ→プランク→腕立て→戻る→ジャンプの一連の動作を連続して行う高強度運動。" },
+    { name: "マウンテンクライマー", cat: "full", catLabel: "全身",
+      reps: [15,25, 30,45, 60,100], unit: "回",
+      desc: "プランクの姿勢から膝を交互に胸に引きつける。速く行うと有酸素運動にもなる。" },
+  ];
+
+  const LEVEL_CONFIG = {
+    easy: { label: "EASY",   cls: "lv-easy", idx: [0,1] },
+    mid:  { label: "MIDDLE", cls: "lv-mid",  idx: [2,3] },
+    hard: { label: "HARD",   cls: "lv-hard", idx: [4,5] },
+  };
+
+  let currentLevel = "easy";
+  let currentItem  = null;
+  let rollInterval = null;
+
+  // Timer state
+  let timerTotal   = 60;
+  let timerLeft    = 60;
+  let timerRunning = false;
+  let timerTick    = null;
+
+  /* ========== LEVEL SELECT ========== */
+  function selectLevel(lv) {
+    currentLevel = lv;
+    const cfg = LEVEL_CONFIG[lv];
+    const badge = document.getElementById("levelBadge");
+    badge.textContent = cfg.label;
+    badge.className   = "current-level " + cfg.cls;
+    showScreen("screenWorkout");
+    resetSlot();
+  }
+
+  function goBack() {
+    stopTimerClear();
+    showScreen("screenLevel");
+  }
+
+  function showScreen(id) {
+    document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+    document.getElementById(id).classList.add("active");
+  }
+
+  /* ========== SLOT ========== */
+  function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+
+  function pickItem() {
+    const m = MENU[Math.floor(Math.random() * MENU.length)];
+    const [i0, i1] = LEVEL_CONFIG[currentLevel].idx;
+    return { ...m, reps: rand(m.reps[i0], m.reps[i1]) };
+  }
+
+  function renderItem(item) {
+    document.getElementById("catPill").className = "cat-pill cat-" + item.cat;
+    document.getElementById("catPill").textContent = item.catLabel;
+    document.getElementById("exName").textContent  = item.name;
+    document.getElementById("exReps").textContent  = item.reps + " " + item.unit;
+  }
+
+  function startRoll() {
+    document.getElementById("startBtn").disabled = true;
+    document.getElementById("stopBtn").disabled  = false;
+    document.getElementById("nextBtn").style.display = "none";
+    document.getElementById("demoBtn").classList.remove("visible");
+    document.getElementById("timerCard").classList.remove("visible");
+    document.getElementById("slotCard").classList.add("rolling");
+    document.getElementById("exHint").textContent = "ストップで確定";
+    stopTimerClear();
+    rollInterval = setInterval(() => renderItem(pickItem()), 80);
+  }
+
+  function stopRoll() {
+    clearInterval(rollInterval);
+    document.getElementById("stopBtn").disabled  = true;
+    document.getElementById("startBtn").disabled = false;
+    document.getElementById("slotCard").classList.remove("rolling");
+    document.getElementById("slotCard").classList.add("locked");
+
+    currentItem = pickItem();
+    renderItem(currentItem);
+    document.getElementById("exHint").textContent = "下のタイマーでトレーニング開始";
+    document.getElementById("nextBtn").style.display = "block";
+    document.getElementById("demoBtn").classList.add("visible");
+
+    const secs = currentItem.unit === "秒" ? currentItem.reps : 60;
+    setupTimer(secs);
+    document.getElementById("timerCard").classList.add("visible");
+  }
+
+  function resetSlot() {
+    document.getElementById("catPill").textContent = "カテゴリ";
+    document.getElementById("catPill").className   = "cat-pill cat-arm";
+    document.getElementById("exName").textContent  = "－";
+    document.getElementById("exReps").textContent  = "－";
+    document.getElementById("exHint").textContent  = "スタートを押してシャッフル";
+    document.getElementById("nextBtn").style.display = "none";
+    document.getElementById("demoBtn").classList.remove("visible");
+    document.getElementById("slotCard").classList.remove("locked");
+    document.getElementById("timerCard").classList.remove("visible");
+    document.getElementById("startBtn").disabled = false;
+    document.getElementById("stopBtn").disabled  = true;
+    stopTimerClear();
+    currentItem = null;
+  }
+
+  /* ========== AUDIO ========== */
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+  function beep(freq, duration, type = "sine", volume = 0.4) {
+    const osc  = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.type      = type;
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+    osc.start();
+    osc.stop(audioCtx.currentTime + duration);
+  }
+
+  function playWarnSound() {
+    // 黄色切り替え：中音2連打
+    beep(880, 0.15, "sine", 0.35);
+    setTimeout(() => beep(880, 0.15, "sine", 0.35), 200);
+  }
+
+  function playDangerSound() {
+    // 赤切り替え：高音3連打
+    beep(1200, 0.12, "square", 0.3);
+    setTimeout(() => beep(1200, 0.12, "square", 0.3), 160);
+    setTimeout(() => beep(1200, 0.12, "square", 0.3), 320);
+  }
+
+  function playFinishSound() {
+    // 完了：上昇アルペジオ
+    [523, 659, 784, 1047].forEach((f, i) =>
+      setTimeout(() => beep(f, 0.25, "sine", 0.4), i * 120)
+    );
+  }
+
+  function resumeAudio() {
+    if (audioCtx.state === "suspended") audioCtx.resume();
+  }
+
+  /* ========== TIMER ========== */
+  let prevColorState = "normal"; // "normal" | "warn" | "danger"
+
+  function setupTimer(secs) {
+    stopTimerClear();
+    timerTotal     = Math.max(10, secs);
+    timerLeft      = timerTotal;
+    prevColorState = "normal";
+    document.getElementById("playBtn").textContent = "開始";
+    renderTimer();
+    updateAdjButtons();
+  }
+
+  function adjustTime(delta) {
+    // 実行中でも追加可能。ただし残り時間も同量増減する
+    const newLeft  = Math.max(1, timerLeft + delta);
+    const newTotal = Math.max(10, timerTotal + delta);
+    timerLeft  = newLeft;
+    timerTotal = newTotal;
+    renderTimer();
+    updateAdjButtons();
+  }
+
+  function updateAdjButtons() {
+    document.getElementById("adjMinus").disabled = timerLeft <= 10;
+    document.getElementById("adjPlus").disabled  = false;
+  }
+
+  function getColorState(left) {
+    if (left <= 5)  return "danger";
+    if (left <= 15) return "warn";
+    return "normal";
+  }
+
+  function renderTimer() {
+    const m = Math.floor(timerLeft / 60);
+    const s = timerLeft % 60;
+    const el = document.getElementById("timerDisplay");
+    el.textContent = m + ":" + String(s).padStart(2, "0");
+
+    const state = getColorState(timerLeft);
+    el.classList.remove("warn", "danger");
+    if (state === "danger") el.classList.add("danger");
+    else if (state === "warn") el.classList.add("warn");
+
+    const pct = (timerLeft / timerTotal) * 100;
+    const bar = document.getElementById("progressBar");
+    bar.style.width      = Math.min(100, pct) + "%";
+    bar.style.background = state === "danger" ? "#ff4747" : state === "warn" ? "#d4e030" : "#00cfff";
+  }
+
+  function toggleTimer() {
+    resumeAudio();
+    if (timerLeft <= 0) { resetTimer(); return; }
+    if (timerRunning) {
+      clearInterval(timerTick);
+      timerRunning = false;
+      document.getElementById("playBtn").textContent = "再開";
+    } else {
+      timerRunning = true;
+      document.getElementById("playBtn").textContent = "一時停止";
+      timerTick = setInterval(() => {
+        timerLeft--;
+        const newState = getColorState(timerLeft);
+
+        // 色変化のタイミングで音を鳴らす
+        if (newState !== prevColorState) {
+          if (newState === "warn")   playWarnSound();
+          if (newState === "danger") playDangerSound();
+          prevColorState = newState;
+        }
+
+        renderTimer();
+
+        if (timerLeft <= 0) {
+          clearInterval(timerTick);
+          timerRunning = false;
+          document.getElementById("playBtn").textContent = "完了";
+          playFinishSound();
+          if (navigator.vibrate) navigator.vibrate([200, 80, 200, 80, 500]);
+          setTimeout(() => alert("お疲れさまでした！"), 100);
+        }
+        updateAdjButtons();
+      }, 1000);
+    }
+    updateAdjButtons();
+  }
+
+  function resetTimer() {
+    stopTimerClear();
+    timerLeft      = timerTotal;
+    prevColorState = "normal";
+    document.getElementById("playBtn").textContent = "開始";
+    renderTimer();
+    updateAdjButtons();
+  }
+
+  function stopTimerClear() {
+    clearInterval(timerTick);
+    timerRunning = false;
+  }
+
+  /* ========== DEMO MODAL ========== */
+  function openDemo() {
+    if (!currentItem) return;
+    document.getElementById("modalTitle").textContent = currentItem.name;
+    document.getElementById("modalBody").textContent  = currentItem.desc;
+    const q = encodeURIComponent(currentItem.name + " やり方 筋トレ");
+    document.getElementById("modalLink").href = "https://www.youtube.com/results?search_query=" + q;
+    document.getElementById("modalBackdrop").classList.add("open");
+  }
+
+  function closeDemo(e) {
+    if (!e || e.target === document.getElementById("modalBackdrop")) {
+      document.getElementById("modalBackdrop").classList.remove("open");
+    }
+  }
+</script>
+</body>
+</html>
